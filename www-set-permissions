@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+
+__SOURCE__="${BASH_SOURCE[0]}"
+while [[ -h "${__SOURCE__}" ]]; do
+    __SOURCE__="$(find "${__SOURCE__}" -type l -ls | sed -n 's@^.* -> \(.*\)@\1@p')"
+done
+__DIR__="$(cd -P "$(dirname "${__SOURCE__}")" && pwd)"
+__NAME__="${__SOURCE__##*/}"
+__AUTHOR__='S0AndS0'
+__DESCRIPTION__='Sets permissions for named repository site files under "~/www" directory'
+
+
+## Provides: argument_parser <arg-array-reference> <acceptable-arg-reference>
+source "${__DIR__}/shared_functions/modules/argument-parser/argument_parser.sh"
+
+## Provides: '__license__ <description> <author>'
+source "${__DIR__}/shared_functions/license"
+
+
+usage(){
+    _message="${1}"
+    _repo_name="${_repo_name:-repository-name}"
+    cat <<EOF
+## Usage
+# ssh ${USER}@host-or-ip ${__NAME__} ${_git_args[@]:-$_repo_name}
+#
+# ${__DESCRIPTION__}
+#
+# ${_repo_name}
+#  Name of repository to run chown and chmod on files and directories
+#  under ~/www/${_repo_name}
+#
+# -l --license
+# Shows script or project license then exits
+#
+# -h    --help help
+#  Displays this message and exits
+EOF
+    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
+        printf 'Error - %s\n' "${_message}" >&2
+    fi
+}
+
+_args=("${@:?# No arguments provided try: ${__NAME__} help}")
+_valid_args=('--help|-h|help:bool'
+             '--license|-l|license:bool'
+             '--repo-name:posix-nil')
+argument_parser '_args' '_valid_args'
+_exit_status="$?"
+
+if ((_help)) || ((_exit_status)); then
+    usage "${_exit_status}"
+    exit "$?"
+elif ((_license)); then
+    __license__ "${__DESCRIPTION__}" "${__AUTHOR__}"
+    exit 0
+fi
+
+if [ -z "${_repo_name}" ]; then
+    usage 'missing repository name argument!'
+    exit "1"
+fi
+
+_www="${HOME}/www"
+_www_group="$(groups ${USER} | grep -oE 'www[-a-z]{0,29}')"
+_srv_path="${_www}/${_repo_name}"
+
+if [ -z "${_www_group}" ]; then
+    printf '# No www group found for %s\n' "${USER}"
+    exit 1
+fi
+if ! [ -d "${_www}" ]; then
+    printf '# No www directory at %s\n' "${_www}"
+    if [ -e "${HOME}/git-shell-commands/jekyll-build"]; then
+        printf '# try: ssh %s@host-or-ip jekyll-build %s\n' "${USER}" "${_repo_name}"
+    fi
+    exit 1
+fi
+
+chown --recursive "${USER}":"${_www_group}" "${_srv_path}"
+find "${_srv_path}" -type d -exec chmod 750 {} \;
+find "${_srv_path}" -type f -exec chmod 640 {} \;
+
+printf '# %s finished\n' "${__NAME__}"

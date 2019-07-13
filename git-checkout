@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+
+__SOURCE__="${BASH_SOURCE[0]}"
+while [[ -h "${__SOURCE__}" ]]; do
+    __SOURCE__="$(find "${__SOURCE__}" -type l -ls | sed -n 's@^.* -> \(.*\)@\1@p')"
+done
+__DIR__="$(cd -P "$(dirname "${__SOURCE__}")" && pwd)"
+__NAME__="${__SOURCE__##*/}"
+__AUTHOR__='S0AndS0'
+__DESCRIPTION__='Short-cut to "git checkout" for named repository'
+
+
+## Provides 'failure'
+source "${__DIR__}/shared_functions/modules/trap-failure/failure.sh"
+trap 'failure "LINENO" "BASH_LINENO" "${BASH_COMMAND}" "${?}"' ERR
+
+## Provides: argument_parser <arg-array-reference> <acceptable-arg-reference>
+source "${__DIR__}/shared_functions/modules/argument-parser/argument_parser.sh"
+
+## Provides: __license__ <description> <author>
+source "${__DIR__}/shared_functions/license"
+
+
+usage(){
+    _message="${1}"
+    _repo_name="${_repo_name:-repository-name}"
+    _branch="${_branch:-new-branch-name}"
+    _branch_name="${_branch_name:-existing-branch-name}"
+    cat <<EOF
+## Usage
+# ssh ${USER}@host-or-ip ${__NAME__} ${_git_args[@]:-$_repo_name}
+#
+# ${__DESCRIPTION__}
+#
+# --branch -b="new-branch-name"
+#  Check out new branch within ${_repo_name} with: git checkout -b ${_branch}
+#
+# ${_branch_name}
+#  Check out exsisting branch within ${_repo_name} with: git checkout ${_branch_name}
+#
+# ${_repo_name}
+#  Name of repository to initialize
+#
+# -l --license
+# Shows script or project license then exits
+#
+# -h    --help help
+#  Display this message and exit
+EOF
+    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
+        printf 'Error - %s\n' "${_message}" >&2
+    fi
+}
+_args=("${@:?# No arguments provided try: ${__NAME__} help}")
+_valid_args=('--help|-h|help:bool'
+             '--license|-l|license:bool'
+             '--branch|-b:posix'
+             '--branch-name:posix-nil'
+             '--repo-name:posix-nil')
+argument_parser '_args' '_valid_args'
+_exit_status="$?"
+
+## Catch --branch <name> <repo>
+if [ -n "${_branch}" ]; then
+    _repo_name="${_branch_name}"
+    _branch_name=''
+fi
+
+if ((_help)) || ((_exit_status)); then
+    usage "${_exit_status}"
+    exit "${_exit_status}"
+elif ((_license)); then
+    __license__ "${__DESCRIPTION__}" "${__AUTHOR__}"
+    exit 0
+fi
+
+if [ -z "${_repo_name}" ]; then
+    usage 'missing repository name argument!'
+    exit "1"
+fi
+
+if [ -z "${_branch}" ] && [ -z "${_branch_name}" ]; then
+    usage 'missing "--branch" or "--branch-name" argument!'
+    exit "1"
+fi
+
+
+_git_path="${HOME}/git/${_repo_name:?# No repository name provided}"
+if ! [ -d "${_git_path}" ]; then
+    usage "no repository found with ${_repo_name}"
+    exit "1"
+elif ! [ -d "${_git_path}/.git" ]; then
+    usage "directory found with ${_repo_name} but not initialized correctly"
+    exit "1"
+fi
+
+
+_git_args=()
+if [ -n "${_branch}" ]; then
+    _git_args+=('-b' "${_branch}")
+elif [ -n "${_branch_name}" ]; then
+    _git_args+=("${_branch}")
+else
+    usage 'missing "--branch" or "--branch-name" argument!'
+    exit 1
+fi
+
+_old_PWD="${PWD}"
+cd "${_git_path}" || exit 1
+git checkout ${_git_args[@]}
+_git_exit_status="${?}"
+[[ "${_old_PWD}" == "${_git_path}" ]] || cd "${_old_PWD}"
+
+if ((_git_exit_status)); then
+    printf '%s encountered errors!\n' "${__NAME__}"
+    exit 1
+fi
+
+printf '%s finished!\n' "${__NAME__}"

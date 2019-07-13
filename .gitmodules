@@ -1,0 +1,8 @@
+[submodule "trap-failure"]
+	path = shared_functions/modules/trap-failure
+	url = https://github.com/bash-utilities/trap-failure.git
+	branch = master
+[submodule "argument-parser"]
+	path = shared_functions/modules/argument-parser
+	url = https://github.com/bash-utilities/argument-parser.git
+	branch = master

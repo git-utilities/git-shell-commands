@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+
+__SOURCE__="${BASH_SOURCE[0]}"
+while [[ -h "${__SOURCE__}" ]]; do
+    __SOURCE__="$(find "${__SOURCE__}" -type l -ls | sed -n 's@^.* -> \(.*\)@\1@p')"
+done
+__DIR__="$(cd -P "$(dirname "${__SOURCE__}")" && pwd)"
+__NAME__="${__SOURCE__##*/}"
+__AUTHOR__='S0AndS0'
+__DESCRIPTION__='Initializes new git repository ready for cloning &/or pushing'
+
+
+## To-do, get results of 'git rev-parse' without tripping the following trap
+## Provides 'failure'
+# source "${__DIR__}/shared_functions/modules/trap-failure/failure.sh"
+# trap 'failure "LINENO" "BASH_LINENO" "${BASH_COMMAND}" "${?}"' ERR
+
+## Provides: argument_parser <arg-array-reference> <acceptable-arg-reference>
+source "${__DIR__}/shared_functions/modules/argument-parser/argument_parser.sh"
+
+## Provides: __license__ <description> <author>
+source "${__DIR__}/shared_functions/license"
+
+
+usage(){
+    _message="${1}"
+    _repo_name="${_repo_name:-repository-name}"
+    cat <<EOF
+## Usage
+# ssh ${USER}@host-or-ip ${__NAME__} ${_git_args[@]:-$_repo_name}
+#
+# ${__DESCRIPTION__}
+#
+##  After initializing
+##  Try: git clone ${USER}@host-or-ip:git/${_repo_name}
+##  or:  git remote add remote-name ${USER}@host-or-ip:git/${_repo_name}
+##       git checkout --track remote-name/branch-name
+#
+# --quiet
+#  Git initializes quietly
+#
+# --bare
+#  Initialize a bare git repository
+#
+# --shared
+#  Allow group $(groups | awk '{print $1}') to git push
+#
+# --template=<path>
+#  Template git repository that git init should pull from
+#
+## See: git help init
+##  for detailed documentation of the above options.
+#
+# ${_repo_name}
+#  Name of repository to initialize
+#
+# -l --license
+# Shows script or project license then exits
+#
+# -h    --help help
+#  Display this message and exit
+EOF
+    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
+        printf 'Error - %s\n' "${_message}" >&2
+    fi
+}
+_args=("${@:?# No arguments provided try: ${__NAME__} help}")
+_valid_args=('--help|-h|help:bool'
+             '--quiet:bool'
+             '--license|-l|license:bool'
+             '--bare:bool'
+             '--shared:bool'
+             '--template:path'
+             '--repo-name:posix-nil')
+argument_parser '_args' '_valid_args'
+_exit_status="$?"
+
+_git_args=()
+if ((_bare)); then   _git_args+=('--bare');   fi
+if ((_shared)); then _git_args+=('--shared'); fi
+if ((_quiet)); then  _git_args+=('--quiet');  fi
+
+if [ -n "${_template}" ]; then  _git_args+=("--template='${_template}'"); fi
+if [ -n "${_repo_name}" ]; then _git_args+=("${_repo_name}"); fi
+
+if ((_help)) || ((_exit_status)); then
+    usage "${_exit_status}"
+    exit "${_exit_status}"
+elif ((_license)); then
+    __license__ "${__DESCRIPTION__}" "${__AUTHOR__}"
+    exit 0
+fi
+
+if [ -z "${_repo_name}" ]; then
+    usage 'missing repository name argument!'
+    exit "1"
+fi
+
+
+_git_path="${HOME}/git/${_repo_name:?# No repository name provided}"
+_git_parent_dir="${_git_path%/*}"
+
+_old_PWD="${PWD}"
+
+[[ -d "${_git_parent_dir}" ]] || mkdir -vp "${_git_parent_dir}"
+## Check if path is already tracked by git
+if [ -d "${_git_path}" ]; then
+    cd "${_git_path}" || exit 1
+    _git_preexisting_dir="$(git rev-parse --git-dir 2>/dev/null)"
+    if [[ "$?" == '0' ]] || [ -n "${_git_preexisting_dir}" ]; then
+        if [[ "${_git_preexisting_dir}" == "${_git_path}/.git" ]] || [[ "${_git_preexisting_dir}" == "${_git_path}" ]]; then
+            printf '# Already tracked by git: %s\n' "${_git_preexisting_dir}"
+            exit 1
+        fi
+    fi
+fi
+
+cd "${_git_parent_dir}" || exit 1
+printf '## git init %s\n' "${_git_args[@]}"
+git init ${_git_args[@]}
+
+## Allow 'git push' on non-bare repositories
+if ! ((_bare)); then
+    cd "${_git_parent_dir}/${_repo_name}" || exit 1
+    if [[ "$(git config receive.denyCurrentBranch)" != 'updateInstead' ]]; then
+        git config receive.denyCurrentBranch updateInstead
+    fi
+fi
+
+[[ "${_old_PWD}" == "${_git_path}" ]] || cd "${_old_PWD}"
+
+printf '# Clone %s via: git clone %s@domain_or_ip:%s\n' "${_repo_name}" "${USER}" "${_git_path//${HOME}\//}"
+printf '# %s finished\n' "${__NAME__}"

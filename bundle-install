@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+
+
+__SOURCE__="${BASH_SOURCE[0]}"
+while [[ -h "${__SOURCE__}" ]]; do
+    __SOURCE__="$(find "${__SOURCE__}" -type l -ls | sed -n 's@^.* -> \(.*\)@\1@p')"
+done
+__DIR__="$(cd -P "$(dirname "${__SOURCE__}")" && pwd)"
+__NAME__="${__SOURCE__##*/}"
+__AUTHOR__='S0AndS0'
+__DESCRIPTION__='Installs dependencies listed within Gemfile.lock file of named repository'
+
+
+## Provides 'failure'
+source "${__DIR__}/shared_functions/modules/trap-failure/failure.sh"
+trap 'failure "LINENO" "BASH_LINENO" "${BASH_COMMAND}" "${?}"' ERR
+
+## Provides: argument_parser <arg-array-reference> <acceptable-arg-reference>
+source "${__DIR__}/shared_functions/modules/argument-parser/argument_parser.sh"
+
+## Provides: __license__ <description> <author>
+source "${__DIR__}/shared_functions/license"
+
+
+usage(){
+    _message="${1}"
+    _repo_name="${_repo_name:-repository-name}"
+    cat <<EOF
+## Usage
+# ssh ${USER}@host-or-ip ${__NAME__} ${_repo_name}
+#
+# ${__DESCRIPTION__}
+#
+##  After installation be sure to run jekyll-build script against ${_repo_name}
+##  eg: ssh ${USER}@host-or-ip jekyll-build ${_repo_name}
+#
+# ${_repo_name}
+#  Name of repository to run 'bundle install' against.
+#
+# -l --license
+# Shows script or project license then exits
+#
+# -h    --help help
+#  Displays this message and exits
+EOF
+    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
+        printf 'Error - %s\n' "${_message}" >&2
+    fi
+}
+
+_args=("${@:?# No arguments provided try: ${__NAME__} help}")
+_valid_args=('--help|-h|help:bool'
+             '--license|-l|license:bool'
+             '--repo-name:posix-nil')
+argument_parser '_args' '_valid_args'
+_exit_status="$?"
+
+
+if ((_help)) || ((_exit_status)); then
+    usage "${_exit_status}"
+    exit "${_exit_status}"
+elif ((_license)); then
+    __license__ "${__DESCRIPTION__}" "${__AUTHOR__}"
+    exit 0
+fi
+
+if [ -z "${_repo_name}" ]; then
+    usage 'missing repository name argument'
+    exit "1"
+fi
+
+
+_git_path="${HOME}/git/${_repo_name}"
+if ! [ -d "${_git_path}" ]; then
+    printf '# No repository %s at %s\n' "${_repo_name}" "${_git_path}" >&2
+    exit 1
+fi
+
+if ! [ -d "${_git_path}/.git" ]; then
+    printf '# Repository %s maybe bare, this script cannot handle that right now\n' "${_repo_name}" >&2
+    exit 1
+fi
+
+
+_bundle_path="${HOME}/.bundle/install"
+_pwd="${PWD}"
+cd "${_git_path}"
+source "${HOME}/.bash_aliases"
+
+if ! [ -f "${_git_path}/Gemfile" ]; then
+    bundle init
+fi
+
+if ! [ -d "${_git_path}/.bundle" ]; then
+    bundle install --path "${_bundle_path}"
+fi
+
+bundle install
+cd "${_pwd}"
+
+
+printf '# %s finished\n' "${__NAME__}"

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+git_add_commit(){
+    _message="${@:?# No message passed to git_add_commit}"
+    _git_status="$( { git status; } 2>&1 )"
+    _exit_status="${?}"
+    case "${_git_status}" in
+        *'nothing to commit, working tree clean'*|*'On branch master'*)
+            cat <<EOF
+## No changes detected
+# git status -> ${_git_status}
+# exit code -> ${_exit_status}
+EOF
+        ;;
+        *'Untracked files'*|*'Changes to be committed'*|*'Changes not staged'*)
+            git add --all .
+            git -c user.name="${USER}" -c user.email="${USER}@${HOSTNAME}" commit --branch -am "${_message}"
+        ;;
+        *'This operation must be run in a work tree'*)
+            cat <<EOF
+## Bare or uninitialized git repository
+# Error message -> ${_git_status}
+# Error code -> ${_exit_status}
+EOF
+        ;;
+        *)
+            cat <<EOF
+## Unknown error with git occurred
+# Error message -> ${_git_status}
+# Error code -> ${_exit_status}
+EOF
+        ;;
+    esac
+    return "${_exit_status}"
+}

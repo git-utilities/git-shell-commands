@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+__SOURCE__="${BASH_SOURCE[0]}"
+while [[ -h "${__SOURCE__}" ]]; do
+    __SOURCE__="$(find "${__SOURCE__}" -type l -ls | sed -n 's@^.* -> \(.*\)@\1@p')"
+done
+__DIR__="$(cd -P "$(dirname "${__SOURCE__}")" && pwd)"
+__NAME__="${__SOURCE__##*/}"
+__AUTHOR__='S0AndS0'
+__DESCRIPTION__='Prints help message and commands for more help'
+
+
+## Provides 'failure'
+source "${__DIR__}/shared_functions/modules/trap-failure/failure.sh"
+trap 'failure "LINENO" "BASH_LINENO" "${BASH_COMMAND}" "${?}"' ERR
+
+## Provides: argument_parser <arg-array-reference> <acceptable-arg-reference>
+source "${__DIR__}/shared_functions/modules/argument-parser/argument_parser.sh"
+
+## Provides: __license__ <description> <author>
+source "${__DIR__}/shared_functions/license"
+
+
+usage(){
+    local _message="${1}"
+    local _script_name="${_script_name:-${__NAME__}}"
+
+    _script_name="${_script_name##*/}"
+    _script_name="${_script_name##*..}"
+
+    local _script_path="${__DIR__}/${_script_name}"
+    if [[ "${_script_name}" == "${__NAME__}" ]]; then
+        cat <<EOF
+## Usage
+# ssh ${USER}@host-or-ip ${__NAME__} ${_script_name}
+#
+# ${__DESCRIPTION__}
+#
+# ${_script_name}
+#  Name of script to run "--help" with
+#
+# -l --license
+# Shows script or project license then exits
+#
+# -h    --help help
+#  Displays this message and exits
+EOF
+elif [ -f "${_script_path}" ] && [ -e "${_script_path}" ]; then
+        printf '%s --help' "${_script_name}"
+        "${_script_path}" --help
+        local _exit_status="${?}"
+    else
+        printf 'Error finding help for %s\n' "${_script_name}" >&2
+        local _exit_status="1"
+    fi
+
+    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
+        printf 'Error - %s\n' "${_message}" >&2
+    fi
+    return "${_exit_status}"
+}
+
+_args=("${@:?# No arguments provided try: ${__NAME__} help}")
+_valid_args=('--help|-h|help:bool'
+             '--license|-l|license:bool'
+             '--script-name:posix-nil')
+argument_parser '_args' '_valid_args'
+_exit_status="${?}"
+
+
+if ((_license)); then
+    __license__ "${__DESCRIPTION__}" "${__AUTHOR__}"
+    exit 0
+fi
+usage "${_exit_status}"
+exit "${_exit_status}"

@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+
+__SOURCE__="${BASH_SOURCE[0]}"
+while [[ -h "${__SOURCE__}" ]]; do
+    __SOURCE__="$(find "${__SOURCE__}" -type l -ls | sed -n 's@^.* -> \(.*\)@\1@p')"
+done
+__DIR__="$(cd -P "$(dirname "${__SOURCE__}")" && pwd)"
+__NAME__="${__SOURCE__##*/}"
+__AUTHOR__='S0AndS0'
+__DESCRIPTION__='Copies named theme files to named repository and git commits the changes'
+
+
+## Provides 'failure'
+# source "${__DIR__}/shared_functions/modules/trap-failure/failure.sh"
+# trap 'failure "LINENO" "BASH_LINENO" "${BASH_COMMAND}" "${?}"' ERR
+
+## Provides: argument_parser <arg-array-reference> <acceptable-arg-reference>
+source "${__DIR__}/shared_functions/modules/argument-parser/argument_parser.sh"
+
+## Provides: git_add_commit <string>
+source "${__DIR__}/shared_functions/git_shortcuts"
+
+## Provides: __license__ <description> <author>
+source "${__DIR__}/shared_functions/license"
+
+
+usage(){
+    _message="${1}"
+    _repo_name="${_repo_name:-repository-name}"
+    _theme_name="${_theme_name:-theme-name}"
+    cat <<EOF
+## Usage
+# ssh ${USER}@host-or-ip ${__NAME__} ${_git_args[@]:-repository-name}
+#
+# ${__DESCRIPTION__}
+#
+# -t    --theme --theme-name=${_theme_name}
+#  Name of theme to copy to ${_repo_name} source directory
+#
+# ${_repo_name}
+#  Name of repository to initialize or add Jekyll gh-pages branch to
+#
+# -l --license
+# Shows script or project license then exits
+#
+# -h    --help help
+#  Displays this message and exits
+#
+## Available theme names
+#
+$(for _name in ${_available_theme_names[@]}; do printf '# %s\n' "${_name}"; done)
+#
+EOF
+    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
+        printf 'Error - %s\n' "${_message}" >&2
+    fi
+}
+
+_args=("${@:?# No arguments provided try: ${__NAME__} help}")
+_valid_args=('--help|-h|help:bool'
+             '--license|-l|license:bool'
+             '--theme-name|--theme|-t:posix'
+             '--repo-name:posix-nil')
+argument_parser '_args' '_valid_args'
+_exit_status="$?"
+
+if ((_help)) || ((_exit_status)); then
+    usage "${_exit_status}"
+    exit "$?"
+elif ((_license)); then
+    __license__ "${__DESCRIPTION__}" "${__AUTHOR__}"
+    exit 0
+fi
+
+if [ -z "${_repo_name}" ]; then
+    usage 'missing repository name argument!'
+    exit "1"
+fi
+
+
+source "${HOME}/.bash_aliases" || exit 1
+_gem_user_version="$(gem env | awk -F'/' '/USER INSTALLATION DIRECTORY:/{print $NF}')"
+_gem_user_install_dir="${HOME}/.bundle/install/ruby/${_gem_user_version}/gems"
+
+_available_theme_paths=()
+_available_theme_names=()
+for _path in ${_gem_user_install_dir}/jekyll-theme-*; do
+    ## Strip file path and 'jekyll-theme-' header
+    _name="${_path##*/jekyll-theme-}"
+    ## Strip version from end
+    _name="${_name%-*}"
+    _available_theme_paths+=("${_path}")
+    _available_theme_names+=("${_name}")
+done
+
+_git_path="${HOME}/git/${_repo_name}"
+_jekyll_config_yml_path="${_git_path}/_config.yml"
+_old_PWD="${PWD}"
+if [ -d "${_git_path}" ]; then cd "${_git_path}"; fi
+
+## To-do, get following results without tripping trap for failure
+_git_dir="$(git rev-parse --git-dir 2>/dev/null)"
+if [[ "${_git_path}/${_git_dir}" != "${_git_path}/.git" ]] || ! [ -f "${_jekyll_config_yml_path}" ]; then
+    printf '# Repository %s not initialized correctly\n' "${_repo_name}"
+    if [ -e "${HOME}/git-shell-commands/jekyll-init" ]; then
+        printf '# Try: ssh ${USER}@host-or-ip jekyll-init %s\n' "${_repo_name}"
+    fi
+    exit 1
+fi
+[[ -n "${_theme_name}" ]] || _theme_name="$(awk '/theme:/{print $2}' "${_jekyll_config_yml_path}")"
+if [ -z "${_theme_name}" ]; then
+    usage 'cannot find theme name!'
+    exit "1"
+fi
+
+for _theme_path in "${_available_theme_paths[@]}"; do
+    case "${_theme_path}" in
+        *"/jekyll-theme-${_theme_name}"*)
+            _chosen_theme_path="${_theme_path}"
+            _chosen_theme_name="${_chosen_theme_path##*/jekyll-theme-}"
+            _chosen_theme_name="${_chosen_theme_name%-*}"
+            break
+        ;;
+    esac
+done
+if [ -z "${_chosen_theme_name}" ] || ! [ -d "${_chosen_theme_path}" ]; then usage; exit "$?"; fi
+
+for _path in $(ls -1 "${_chosen_theme_path}"); do
+    if ! [ -d "${_chosen_theme_path}/${_path}" ]; then continue; fi
+    rsync -av --progress "${_chosen_theme_path}/${_path}" "${_git_path}/" --exclude "assets/fonts"
+    # cp -vr "${_chosen_theme_path}/${_path}" "${_git_path}/"
+done
+if [ -f "${_chosen_theme_path}/LICENSE" ]; then
+    cp -v "${_chosen_theme_path}/LICENSE" "${_git_path}/LICENSE_${_chosen_theme_name}"
+fi
+
+git_add_commit "Added files from ${_chosen_theme_name}"
+
+printf '# %s finished\n' "${__NAME__}"
