@@ -92,9 +92,9 @@ fi
 ## Build cama seperated list of _config*.yml files
 while read _p; do
     _f="${_p##*/}"
-    if [[ "${_f}" != '_config.yml' ]] || [[ "${_f}" != '_config.yaml' ]]; then
-        _config_files+=",${_f}"
-    fi
+    [[ "${_f}" == '_config.yml' ]] && continue
+    [[ "${_f}" == '_config.yaml' ]] && continue
+    _config_files+=",${_f}"
 done < <(ls -1 "${_git_path}"/_config*.y*ml)
 
 
