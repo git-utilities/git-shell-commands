@@ -213,7 +213,7 @@ cat >> "${_git_path}/.gitignore" <<EOF
 Bundler
 vendor
 .bundle
-Gemfile.lock
+node_modules
 EOF
 
 git_add_commit 'Added files from Bundler & Jekyll to git tracking'

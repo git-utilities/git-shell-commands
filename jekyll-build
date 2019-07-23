@@ -34,8 +34,11 @@ usage(){
 #  Name of repository to run
 #  bundle exec jekyll build --destination "${_srv_path//${HOME}/~}"
 #
+# -s --submodules
+#  Runs: git submodule update --init --recursive --merge
+#
 # -l --license
-# Shows script or project license then exits
+#  Shows script or project license then exits
 #
 # -h    --help help
 #  Displays this message and exits
@@ -47,6 +50,7 @@ EOF
 
 _args=("${@:?# No arguments provided try: ${__NAME__} help}")
 _valid_args=('--help|-h|help:bool'
+             '--submodules|-s|submodules:bool'
              '--license|-l|license:bool'
              '--repo-name:posix-nil')
 argument_parser '_args' '_valid_args'
@@ -96,10 +100,15 @@ done < <(ls -1 "${_git_path}"/_config*.y*ml)
 
 [[ -d "${_www}" ]] || mkdir -vp "${_www}"
 
+
 _pwd="${PWD}"
 cd "${_git_path}"
-source "${HOME}/.bash_aliases"
+if ((_submodules)); then
+    git submodule update --init --recursive --merge
+fi
 
+
+source "${HOME}/.bash_aliases"
 ## Use API keys if configured for repo and available to user during build process
 if grep -q -- 'jekyll-github-metadata' "${_git_path}/Gemfile" && [ -f "${_github_api_token_path}" ]; then
     printf '# JEKYLL_GITHUB_TOKEN="$(<github-api-token-path)" bundle exec jekyll build --destination %s --config %s\n' "${_srv_path}" "${_config_files}"

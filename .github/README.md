@@ -60,7 +60,6 @@ tee -a /etc/shells 1>/dev/null <<<"$(which git-shell)"
 
 ```Bash
 adduser\
- --force-badname\
  --system\
  --disabled-password\
  --gecos ''\
