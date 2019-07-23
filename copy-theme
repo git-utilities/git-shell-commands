@@ -15,7 +15,7 @@ __DESCRIPTION__='Copies named theme files to named repository and git commits th
 # trap 'failure "LINENO" "BASH_LINENO" "${BASH_COMMAND}" "${?}"' ERR
 
 ## Provides: argument_parser <arg-array-reference> <acceptable-arg-reference>
-source "${__DIR__}/shared_functions/modules/argument-parser/argument_parser.sh"
+source "${__DIR__}/shared_functions/modules/argument-parser/argument-parser.sh"
 
 ## Provides: git_add_commit <string>
 source "${__DIR__}/shared_functions/git_shortcuts"

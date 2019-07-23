@@ -11,7 +11,7 @@ __DESCRIPTION__='Sets permissions for named repository site files under "~/www" 
 
 
 ## Provides: argument_parser <arg-array-reference> <acceptable-arg-reference>
-source "${__DIR__}/shared_functions/modules/argument-parser/argument_parser.sh"
+source "${__DIR__}/shared_functions/modules/argument-parser/argument-parser.sh"
 
 ## Provides: '__license__ <description> <author>'
 source "${__DIR__}/shared_functions/license"
