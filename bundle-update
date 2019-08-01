@@ -21,6 +21,9 @@ source "${__DIR__}/shared_functions/modules/argument-parser/argument-parser.sh"
 ## Provides: __license__ <description> <author>
 source "${__DIR__}/shared_functions/license"
 
+## Provides: git_add_commit <string>
+source "${__DIR__}/shared_functions/git_shortcuts"
+
 
 usage(){
     _message="${1}"
@@ -97,6 +100,7 @@ if ! [ -d "${_git_path}/.bundle" ]; then
 fi
 
 bundle update
+git_add_commit "Updated bundler configurations"
 cd "${_pwd}"
 
 
