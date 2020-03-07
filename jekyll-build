@@ -40,6 +40,9 @@ usage(){
 # -l --license
 #  Shows script or project license then exits
 #
+# -v --verbose
+#  Runs build commands verbosely
+#
 # -h    --help help
 #  Displays this message and exits
 EOF
@@ -50,6 +53,7 @@ EOF
 
 _args=("${@:?# No arguments provided try: ${__NAME__} help}")
 _valid_args=('--help|-h|help:bool'
+             '--verbose|-v|verbose:bool'
              '--submodules|-s|submodules:bool'
              '--license|-l|license:bool'
              '--repo-name:posix-nil')
@@ -109,13 +113,23 @@ fi
 
 
 source "${HOME}/.bash_aliases"
+
+_build_args=(
+  '--destination' "${_srv_path}"
+  '--config' "${_config_files}"
+)
+
+(("${#_verbose}")) && {
+  _build_args+=('--verbose')
+}
+
 ## Use API keys if configured for repo and available to user during build process
 if grep -q -- 'jekyll-github-metadata' "${_git_path}/Gemfile" && [ -f "${_github_api_token_path}" ]; then
-    printf '# JEKYLL_GITHUB_TOKEN="$(<github-api-token-path)" bundle exec jekyll build --destination %s --config %s\n' "${_srv_path}" "${_config_files}"
-    JEKYLL_GITHUB_TOKEN="$(<"${_github_api_token_path}")" bundle exec jekyll build --destination "${_srv_path}" --config "${_config_files}"
+    printf '# JEKYLL_GITHUB_TOKEN="$(<github-api-token-path)" bundle exec jekyll build %s\n' "${_build_args[*]}"
+    JEKYLL_GITHUB_TOKEN="$(<"${_github_api_token_path}")" bundle exec jekyll build ${_build_args[@]}
 else
-    printf '# bundle exec jekyll build --destination "%s" --config "%s"\n' "${_srv_path}" "${_config_files}"
-    bundle exec jekyll build --destination "${_srv_path}" --config "${_config_files}"
+    printf '# bundle exec jekyll build %s"\n' "${_build_args[*]}"
+    bundle exec jekyll build ${_build_args[@]}
 fi
 
 [[ "${_pwd}" == "${_git_path}" ]] || cd "${_pwd}"
