@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+__SOURCE__="${BASH_SOURCE[0]}"
+while [[ -h "${__SOURCE__}" ]]; do
+    __SOURCE__="$(find "${__SOURCE__}" -type l -ls | sed -n 's@^.* -> \(.*\)@\1@p')"
+done
+__DIR__="$(cd -P "$(dirname "${__SOURCE__}")" && pwd)"
+__NAME__="${__SOURCE__##*/}"
+__AUTHOR__='S0AndS0'
+__DESCRIPTION__='Upgrades bundler for account via: gem bundle install'
+
+
+## Provides 'failure'
+source "${__DIR__}/shared_functions/modules/trap-failure/failure.sh"
+trap 'failure "LINENO" "BASH_LINENO" "${BASH_COMMAND}" "${?}"' ERR
+
+## Provides: argument_parser <arg-array-reference> <acceptable-arg-reference>
+source "${__DIR__}/shared_functions/modules/argument-parser/argument-parser.sh"
+
+## Provides: __license__ <description> <author>
+source "${__DIR__}/shared_functions/license"
+
+
+usage(){
+    _message="${1}"
+    _repo_name="${_repo_name:-repository-name}"
+    cat <<EOF
+## Usage
+# ssh ${USER}@host-or-ip ${__NAME__} ${_repo_name}
+#
+# ${__DESCRIPTION__}
+#
+# -l --license
+#  Shows script or project license then exits
+#
+# -v --verbose
+#  Runs build commands verbosely
+#
+# -h    --help help
+#  Displays this message and exits
+EOF
+    (("${#_message}")) && [[ "${_message}" != '0' ]] && {
+        printf >&2 'Error - %s\n' "${_message}"
+    }
+}
+
+
+_args=("${@:?# No arguments provided try: ${__NAME__} help}")
+_valid_args=('--help|-h|help:bool'
+             '--verbose|-v|verbose:bool'
+             '--license|-l|license:bool')
+argument_parser '_args' '_valid_args'
+_exit_status="$?"
+
+
+if ((_help)) || ((_exit_status)); then
+    usage "${_exit_status}"
+    exit "${_exit_status}"
+elif ((_license)); then
+    __license__ "${__DESCRIPTION__}" "${__AUTHOR__}"
+    exit 0
+fi
+
+
+gem install bundler
