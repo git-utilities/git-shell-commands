@@ -34,12 +34,12 @@ usage(){
 #  Displays this message and exits
 #
 EOF
-    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
-        printf 'Error - %s\n' "${_message}" >&2
-    else
-        echo '# Example of: list git-shell-commands'
+    (("${#_message}")) && [[ "${_message}" != '0' ]] && {
+        printf >&2 'Error - %s\n' "${_message}"
+    } || {
+        printf '# Example of: list %s\n' "${__NAME__}"
         ls -hl "${HOME}/git-shell-commands"
-    fi
+    }
 }
 
 _args=("${@:?# No arguments provided try: ${__NAME__} help}")
@@ -58,10 +58,10 @@ elif ((_license)); then
     exit 0
 fi
 
-if [ -z "${_path}" ]; then
+(("${#_path}")) || {
     usage 'missing path argument!'
     exit "1"
-fi
+}
 
 
 if [ -d "${HOME}/${_path}" ]; then

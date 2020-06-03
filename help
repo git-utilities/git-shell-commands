@@ -45,7 +45,7 @@ usage(){
 # -h    --help help
 #  Displays this message and exits
 EOF
-elif [ -f "${_script_path}" ] && [ -e "${_script_path}" ]; then
+    elif [ -f "${_script_path}" ] && [ -e "${_script_path}" ]; then
         printf '%s --help' "${_script_name}"
         "${_script_path}" --help
         local _exit_status="${?}"
@@ -54,9 +54,9 @@ elif [ -f "${_script_path}" ] && [ -e "${_script_path}" ]; then
         local _exit_status="1"
     fi
 
-    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
-        printf 'Error - %s\n' "${_message}" >&2
-    fi
+    (("${#_message}")) && [[ "${_message}" != '0' ]] && {
+        printf >&2 'Error - %s\n' "${_message}"
+    }
     return "${_exit_status}"
 }
 
@@ -68,9 +68,10 @@ argument_parser '_args' '_valid_args'
 _exit_status="${?}"
 
 
-if ((_license)); then
+((_license)) && {
     __license__ "${__DESCRIPTION__}" "${__AUTHOR__}"
     exit 0
-fi
+}
+
 usage "${_exit_status}"
 exit "${_exit_status}"

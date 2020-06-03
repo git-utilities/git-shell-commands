@@ -46,9 +46,9 @@ usage(){
 # -h    --help help
 #  Displays this message and exits
 EOF
-    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
-        printf 'Error - %s\n' "${_message}" >&2
-    fi
+    (("${#_message}")) && [[ "${_message}" != '0' ]] && {
+        printf >&2 'Error - %s\n' "${_message}"
+    }
 }
 
 _args=("${@:?# No arguments provided try: ${__NAME__} help}")
@@ -67,22 +67,23 @@ elif ((_license)); then
     exit 0
 fi
 
-if [ -z "${_repo_name}" ]; then
-    usage 'missing repository name argument' >&2
+(("${#_repo_name}")) || {
+    usage 'missing repository name argument'
     exit "1"
-fi
+}
 
 
 _git_path="${HOME}/git/${_repo_name}"
-if ! [ -d "${_git_path}" ]; then
-    printf '# No repository %s at %s\n' "${_repo_name}" "${_git_path}" >&2
+[[ -d "${_git_path}" ]] || {
+    printf >&2 '# No repository %s at %s\n' "${_repo_name}" "${_git_path}"
     exit 1
-fi
+}
 
-if ! [ -d "${_git_path}/.git" ]; then
-    printf '# Repository %s maybe bare, this script cannot handle that right now\n' "${_repo_name}" >&2
+
+[[ -d "${_git_path}/.git" ]] || {
+    printf >&2 '# Repository %s maybe bare, this script cannot handle that right now\n' "${_repo_name}"
     exit 1
-fi
+}
 
 
 _bundle_path="${HOME}/.bundle/install"
@@ -90,17 +91,20 @@ _pwd="${PWD}"
 cd "${_git_path}"
 source "${HOME}/.bash_aliases"
 
-if ! [ -f "${_git_path}/Gemfile" ]; then
-    printf 'No Gemfile found under %s\n' "${_git_path}" >&2
-    exit 1
-fi
 
-if ! [ -d "${_git_path}/.bundle" ]; then
+[[ -f "${_git_path}/Gemfile" ]] || {
+    printf >&2 'No Gemfile found under %s\n' "${_git_path}"
+    exit 1
+}
+
+
+[[ -d "${_git_path}/.bundle" ]] || {
     bundle install --path "${_bundle_path}"
-fi
+}
+
 
 bundle update
-git_add_commit "Updated bundler configurations"
+git_add_commit "Updates bundler configurations"
 cd "${_pwd}"
 
 

@@ -46,9 +46,9 @@ usage(){
 # -h    --help help
 #  Displays this message and exits
 EOF
-    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
-        printf 'Error - %s\n' "${_message}" >&2
-    fi
+    (("${#_message}")) && [[ "${_message}" != '0' ]] && {
+        printf >&2 'Error - %s\n' "${_message}"
+    }
 }
 
 _args=("${@:?# No arguments provided try: ${__NAME__} help}")
@@ -73,15 +73,15 @@ elif ((_license)); then
     exit 0
 fi
 
-if [ -z "${_repo_name}" ]; then
+(("${#_repo_name}")) || {
     usage 'missing repository name argument!'
     exit "1"
-fi
+}
 
-if ! [ -d "${_git_path}" ]; then
+[[ -d "${_git_path}" ]] || {
     printf '# No repository %s at %s\n' "${_repo_name}" "${_git_path}"
     exit 1
-fi
+}
 
 
 if [ -f "${_git_path}/_config.yml" ]; then
@@ -102,14 +102,16 @@ while read _p; do
 done < <(ls -1 "${_git_path}"/_config*.y*ml)
 
 
-[[ -d "${_www}" ]] || mkdir -vp "${_www}"
+[[ -d "${_www}" ]] || {
+  mkdir -vp "${_www}"
+}
 
 
 _pwd="${PWD}"
 cd "${_git_path}"
-if ((_submodules)); then
+((_submodules)) && {
     git submodule update --init --recursive --merge
-fi
+}
 
 
 source "${HOME}/.bash_aliases"
@@ -119,8 +121,8 @@ _build_args=(
   '--config' "${_config_files}"
 )
 
-(("${#_verbose}")) && {
-  _build_args+=('--verbose')
+((_verbose)) && {
+    _build_args+=('--verbose')
 }
 
 ## Use API keys if configured for repo and available to user during build process
@@ -132,19 +134,21 @@ else
     bundle exec jekyll build ${_build_args[@]}
 fi
 
-[[ "${_pwd}" == "${_git_path}" ]] || cd "${_pwd}"
+[[ "${_pwd}" == "${_git_path}" ]] || {
+  cd "${_pwd}"
+}
 
 ## Set permissions for files and directories under repo www directory
-if [ -e "${HOME}/git-shell-commands/www-set-permissions" ]; then
+[[ -e "${HOME}/git-shell-commands/www-set-permissions" ]] && {
     "${HOME}/git-shell-commands/www-set-permissions" "${_repo_name}"
-else
+} || {
     _current_group="$(groups "${USER}" | awk '{print $3}')"
     _www_group="$(groups "${USER}" | grep -oE 'www[-a-z]{0,29}')"
-    if [ -n "${_current_group}" ] && [ -n "${_www_group}" ]; then
+    (("${#_current_group}")) && (("${#_www_group}")) && {
         find "${_srv_path}" -group "${_current_group}" -exec chgrp -h "${_www_group}" {} \;
         find "${_srv_path}" -group "${_www_group}" -type d -exec chmod 750 {} \;
         find "${_srv_path}" -group "${_www_group}" -type f -exec chmod 640 {} \;
-    fi
-fi
+    }
+}
 
 printf '# %s finished\n' "${__NAME__}"

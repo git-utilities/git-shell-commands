@@ -60,9 +60,9 @@ usage(){
 # -h    --help help
 #  Display this message and exit
 EOF
-    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
-        printf 'Error - %s\n' "${_message}" >&2
-    fi
+    (("${#_message}")) && [[ "${_message}" != '0' ]] && {
+        printf >&2 'Error - %s\n' "${_message}"
+    }
 }
 _args=("${@:?# No arguments provided try: ${__NAME__} help}")
 _valid_args=('--help|-h|help:bool'
@@ -76,12 +76,12 @@ argument_parser '_args' '_valid_args'
 _exit_status="$?"
 
 _git_args=()
-if ((_bare)); then   _git_args+=('--bare');   fi
-if ((_shared)); then _git_args+=('--shared'); fi
-if ((_quiet)); then  _git_args+=('--quiet');  fi
+((_bare)) && { _git_args+=('--bare'); }
+((_shared)) && { _git_args+=('--shared'); }
+((_quiet)) && { _git_args+=('--quiet'); }
 
-if [ -n "${_template}" ]; then  _git_args+=("--template='${_template}'"); fi
-if [ -n "${_repo_name}" ]; then _git_args+=("${_repo_name}"); fi
+(("${#_template}")) && { _git_args+=("--template='${_template}'"); }
+(("${#_repo_name}")) && { _git_args+=("${_repo_name}"); }
 
 if ((_help)) || ((_exit_status)); then
     usage "${_exit_status}"
@@ -91,10 +91,10 @@ elif ((_license)); then
     exit 0
 fi
 
-if [ -z "${_repo_name}" ]; then
+(("${#_repo_name}")) || {
     usage 'missing repository name argument!'
     exit "1"
-fi
+}
 
 
 _git_path="${HOME}/git/${_repo_name:?# No repository name provided}"
@@ -102,32 +102,35 @@ _git_parent_dir="${_git_path%/*}"
 
 _old_PWD="${PWD}"
 
-[[ -d "${_git_parent_dir}" ]] || mkdir -vp "${_git_parent_dir}"
+[[ -d "${_git_parent_dir}" ]] || { mkdir -vp "${_git_parent_dir}"; }
 ## Check if path is already tracked by git
-if [ -d "${_git_path}" ]; then
+[[ -d "${_git_path}" ]] && {
     cd "${_git_path}" || exit 1
     _git_preexisting_dir="$(git rev-parse --git-dir 2>/dev/null)"
-    if [[ "$?" == '0' ]] || [ -n "${_git_preexisting_dir}" ]; then
-        if [[ "${_git_preexisting_dir}" == "${_git_path}/.git" ]] || [[ "${_git_preexisting_dir}" == "${_git_path}" ]]; then
-            printf '# Already tracked by git: %s\n' "${_git_preexisting_dir}"
+    [[ "$?" == '0' ]] || (("${#_git_preexisting_dir}")) && {
+        [[ "${_git_preexisting_dir}" == "${_git_path}/.git" ]] || [[ "${_git_preexisting_dir}" == "${_git_path}" ]] && {
+            printf >&2 '# Already tracked by git: %s\n' "${_git_preexisting_dir}"
             exit 1
-        fi
-    fi
-fi
+        }
+    }
+}
+
 
 cd "${_git_parent_dir}" || exit 1
 printf '## git init %s\n' "${_git_args[@]}"
 git init ${_git_args[@]}
 
 ## Allow 'git push' on non-bare repositories
-if ! ((_bare)); then
+! ((_bare)) && {
     cd "${_git_parent_dir}/${_repo_name}" || exit 1
-    if [[ "$(git config receive.denyCurrentBranch)" != 'updateInstead' ]]; then
+    [[ "$(git config receive.denyCurrentBranch)" != 'updateInstead' ]] && {
         git config receive.denyCurrentBranch updateInstead
-    fi
-fi
+    }
+}
 
-[[ "${_old_PWD}" == "${_git_path}" ]] || cd "${_old_PWD}"
+[[ "${_old_PWD}" == "${_git_path}" ]] || {
+    cd "${_old_PWD}"
+}
 
 printf '# Clone %s via: git clone %s@domain_or_ip:%s\n' "${_repo_name}" "${USER}" "${_git_path//${HOME}\//}"
 printf '# %s finished\n' "${__NAME__}"

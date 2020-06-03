@@ -45,9 +45,9 @@ usage(){
 # -h    --help help
 #  Displays this message and exits
 EOF
-    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
-        printf 'Error - %s\n' "${_message}" >&2
-    fi
+    (("${#_message}")) && [[ "${_message}" != '0' ]] && {
+        printf >&2 'Error - %s\n' "${_message}"
+    }
 }
 
 _args=("${@:?# No arguments provided try: ${__NAME__} help}")
@@ -63,15 +63,13 @@ elif ((_license)); then
     exit 0
 fi
 
-
-if [ -n "${_github_api_token}" ]; then
+(("${#_github_api_token}")) && {
     mkdir -vp "${_config_dir}"
-    tee "${_config_dir}/github-api-token" 1>/dev/null <<EOF
-${_github_api_token}
-EOF
-else
+    tee "${_config_dir}/github-api-token" 1>/dev/null <<<"${_github_api_token}"
+} || {
     usage 'missing "--github-api-token" argument!'
     exit "1"
-fi
+}
+
 
 printf '%s finished!\n' "${__NAME__}"

@@ -51,9 +51,9 @@ usage(){
 $(for _name in ${_available_theme_names[@]}; do printf '# %s\n' "${_name}"; done)
 #
 EOF
-    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
-        printf 'Error - %s\n' "${_message}" >&2
-    fi
+    (("${#_message}")) && [[ "${_message}" != '0' ]] && {
+        printf >&2 'Error - %s\n' "${_message}"
+    }
 }
 
 _args=("${@:?# No arguments provided try: ${__NAME__} help}")
@@ -72,10 +72,11 @@ elif ((_license)); then
     exit 0
 fi
 
-if [ -z "${_repo_name}" ]; then
+
+(("${#_repo_name}")) || {
     usage 'missing repository name argument!'
     exit "1"
-fi
+}
 
 
 source "${HOME}/.bash_aliases" || exit 1
@@ -84,7 +85,7 @@ _gem_user_install_dir="${HOME}/.bundle/install/ruby/${_gem_user_version}/gems"
 
 _available_theme_paths=()
 _available_theme_names=()
-for _path in ${_gem_user_install_dir}/jekyll-theme-*; do
+for _path in "${_gem_user_install_dir}/jekyll-theme-"*; do
     ## Strip file path and 'jekyll-theme-' header
     _name="${_path##*/jekyll-theme-}"
     ## Strip version from end
@@ -96,22 +97,26 @@ done
 _git_path="${HOME}/git/${_repo_name}"
 _jekyll_config_yml_path="${_git_path}/_config.yml"
 _old_PWD="${PWD}"
-if [ -d "${_git_path}" ]; then cd "${_git_path}"; fi
+[[ -d "${_git_path}" ]] && { cd "${_git_path}"; }
 
 ## To-do, get following results without tripping trap for failure
 _git_dir="$(git rev-parse --git-dir 2>/dev/null)"
-if [[ "${_git_path}/${_git_dir}" != "${_git_path}/.git" ]] || ! [ -f "${_jekyll_config_yml_path}" ]; then
-    printf '# Repository %s not initialized correctly\n' "${_repo_name}"
-    if [ -e "${HOME}/git-shell-commands/jekyll-init" ]; then
-        printf '# Try: ssh ${USER}@host-or-ip jekyll-init %s\n' "${_repo_name}"
-    fi
+[[ "${_git_path}/${_git_dir}" != "${_git_path}/.git" ]] || ! [[ -f "${_jekyll_config_yml_path}" ]] && {
+    printf >&2 '# Repository %s not initialized correctly\n' "${_repo_name}"
+    [[ -e "${HOME}/git-shell-commands/jekyll-init" ]] && {
+      printf >&2 '# Try: ssh ${USER}@host-or-ip jekyll-init %s\n' "${_repo_name}"
+    }
     exit 1
-fi
-[[ -n "${_theme_name}" ]] || _theme_name="$(awk '/theme:/{print $2}' "${_jekyll_config_yml_path}")"
-if [ -z "${_theme_name}" ]; then
+}
+
+[[ -n "${_theme_name}" ]] || {
+  _theme_name="$(awk '/theme:/{print $2}' "${_jekyll_config_yml_path}")"
+}
+(("${#_theme_name}")) || {
     usage 'cannot find theme name!'
     exit "1"
-fi
+}
+
 
 for _theme_path in "${_available_theme_paths[@]}"; do
     case "${_theme_path}" in
@@ -123,17 +128,24 @@ for _theme_path in "${_available_theme_paths[@]}"; do
         ;;
     esac
 done
-if [ -z "${_chosen_theme_name}" ] || ! [ -d "${_chosen_theme_path}" ]; then usage; exit "$?"; fi
+! (("${#_chosen_theme_name}")) || ! [[ -d "${_chosen_theme_path}" ]] && {
+    usage
+    exit "$?";
+}
+
 
 for _path in $(ls -1 "${_chosen_theme_path}"); do
-    if ! [ -d "${_chosen_theme_path}/${_path}" ]; then continue; fi
+    [[ -d "${_chosen_theme_path}/${_path}" ]] || {
+        continue
+    }
     rsync -av --progress "${_chosen_theme_path}/${_path}" "${_git_path}/" --exclude "assets/fonts"
     # cp -vr "${_chosen_theme_path}/${_path}" "${_git_path}/"
 done
-if [ -f "${_chosen_theme_path}/LICENSE" ]; then
+[[ -f "${_chosen_theme_path}/LICENSE" ]] && {
     cp -v "${_chosen_theme_path}/LICENSE" "${_git_path}/LICENSE_${_chosen_theme_name}"
-fi
+}
 
-git_add_commit "Added files from ${_chosen_theme_name}"
+
+git_add_commit "Addes files from ${_chosen_theme_name}"
 
 printf '# %s finished\n' "${__NAME__}"

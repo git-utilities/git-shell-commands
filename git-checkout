@@ -47,9 +47,9 @@ usage(){
 # -h    --help help
 #  Display this message and exit
 EOF
-    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
-        printf 'Error - %s\n' "${_message}" >&2
-    fi
+    (("${#_message}")) && [[ "${_message}" != '0' ]] && {
+        printf >&2 'Error - %s\n' "${_message}"
+    }
 }
 _args=("${@:?# No arguments provided try: ${__NAME__} help}")
 _valid_args=('--help|-h|help:bool'
@@ -61,10 +61,11 @@ argument_parser '_args' '_valid_args'
 _exit_status="$?"
 
 ## Catch --branch <name> <repo>
-if [ -n "${_branch}" ]; then
+(("${#_branch}")) && {
     _repo_name="${_branch_name}"
     _branch_name=''
-fi
+}
+
 
 if ((_help)) || ((_exit_status)); then
     usage "${_exit_status}"
@@ -74,32 +75,33 @@ elif ((_license)); then
     exit 0
 fi
 
-if [ -z "${_repo_name}" ]; then
+(("${#_repo_name}")) || {
     usage 'missing repository name argument!'
     exit "1"
-fi
+}
 
-if [ -z "${_branch}" ] && [ -z "${_branch_name}" ]; then
+! (("${#_branch}")) && ! (("${#_branch_name}")) && {
     usage 'missing "--branch" or "--branch-name" argument!'
     exit "1"
-fi
+}
 
 
 _git_path="${HOME}/git/${_repo_name:?# No repository name provided}"
-if ! [ -d "${_git_path}" ]; then
+[[ -d "${_git_path}" ]] || {
     usage "no repository found with ${_repo_name}"
     exit "1"
-elif ! [ -d "${_git_path}/.git" ]; then
+}
+[[ -d "${_git_path}/.git" ]] || {
     usage "directory found with ${_repo_name} but not initialized correctly"
     exit "1"
-fi
+}
 
 
 _git_args=()
-if [ -n "${_branch}" ]; then
+if (("${#_branch}")); then
     _git_args+=('-b' "${_branch}")
-elif [ -n "${_branch_name}" ]; then
-    _git_args+=("${_branch}")
+elif (("${#_branch_name}")); then
+    _git_args+=("${_branch_name}")
 else
     usage 'missing "--branch" or "--branch-name" argument!'
     exit 1
@@ -109,11 +111,13 @@ _old_PWD="${PWD}"
 cd "${_git_path}" || exit 1
 git checkout ${_git_args[@]}
 _git_exit_status="${?}"
-[[ "${_old_PWD}" == "${_git_path}" ]] || cd "${_old_PWD}"
+[[ "${_old_PWD}" == "${_git_path}" ]] || {
+  cd "${_old_PWD}"
+}
 
-if ((_git_exit_status)); then
-    printf '%s encountered errors!\n' "${__NAME__}"
+((_git_exit_status)) && {
+    printf >&2 '%s encountered errors!\n' "${__NAME__}"
     exit 1
-fi
+}
 
 printf '%s finished!\n' "${__NAME__}"

@@ -66,9 +66,9 @@ usage(){
 # --twitter-username ${_twitter_username}
 # --github-username ${_github_username}
 EOF
-    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
-        printf 'Error - %s\n' "${_message}" >&2
-    fi
+    (("${#_message}")) && [[ "${_message}" != '0' ]] && {
+        printf >&2 'Error - %s\n' "${_message}"
+    }
 }
 
 
@@ -87,21 +87,21 @@ _valid_args=('--help|-h|help:bool'
 argument_parser '_args' '_valid_args'
 _exit_status="$?"
 _git_args=()
-if ((_quiet)); then  _git_args+=('--quiet');  fi
-if ((_shared)); then _git_args+=('--shared'); fi
-if [ -n "${_template}" ]; then  _git_args+=("--template='${_template}'"); fi
-if [ -n "${_repo_name}" ]; then _git_args+=("${_repo_name}"); fi
+((_quiet)) && { _git_args+=('--quiet'); }
+((_shared)) && { _git_args+=('--shared'); }
+(("${#_template}")) && { _git_args+=("--template='${_template}'"); }
+(("${#_repo_name}")) && { _git_args+=("${_repo_name}"); }
 
 
 ## Set defaults for some variables if not already set
 _github_username="${_github_username:-$USER}"
 if [ -z "${_title}" ]; then
     for _word in ${_repo_name//[-_]/ }; do
-        if [[ "${#_word}" -ge '4' ]]; then
+        [[ "${#_word}" -ge '4' ]] && {
             _temp_title+=("${_word^}")
-        else
+        } || {
             _temp_title+=("${_word}")
-        fi
+        }
     done
     _title="${_temp_title[@]}"
 fi
@@ -116,14 +116,16 @@ elif ((_license)); then
     exit 0
 fi
 
-if [ -z "${_repo_name}" ]; then
+(("${#_repo_name}")) || {
     usage 'missing repository name argument!'
     exit "1"
-fi
+}
 
 _git_path="${HOME}/git/${_repo_name:?No repository name provided}"
 _old_PWD="${PWD}"
-if [ -d "${_git_path}" ]; then cd "${_git_path}"; fi
+[[ -d "${_git_path}" ]] && {
+    cd "${_git_path}"
+}
 _git_dir="$(git rev-parse --git-dir 2>/dev/null)"
 
 
@@ -133,12 +135,12 @@ elif [[ "${_git_path}/${_git_dir}" == "${_git_path}/." ]]; then
     echo '# Bare git repository detected, cannot install Jekyll to that right now'
     exit 1
 else
-    if [ -e "${HOME}/git-shell-commands/git-init" ]; then
+    [[ -e "${HOME}/git-shell-commands/git-init" ]] && {
         "${HOME}/git-shell-commands/git-init" ${_git_args[@]}
-    else
+    } || {
         cd "${HOME}/git" || exit 1
         git init ${_git_args[@]}
-    fi
+    }
 fi
 
 
@@ -146,19 +148,19 @@ cd "${_git_path}" || exit 1
 _git_branches="$(git branch --list)"
 _orig_branch="$(awk '/\*/{print $2}' <<<"${_git_branches}")"
 _pages_branch="$(awk '/gh-pages/{print $2}' <<<"${_git_branches}")"
-if [ -n "${_pages_branch}" ]; then
+(("${#_pages_branch}")) && {
     printf '# There is already a pages branch %s for repository %s\n' "${_pages_branch}" "${_repo_name}"
     exit 1
-fi
+}
 
 git_add_commit "Added files on ${_orig_branch} prior to installing Bundler & Jekyll to gh-pages branch"
 
 git checkout -b gh-pages
-if [[ "$(git config receive.denyCurrentBranch)" != 'updateInstead' ]]; then
+[[ "$(git config receive.denyCurrentBranch)" != 'updateInstead' ]] && {
     git config receive.denyCurrentBranch updateInstead
-fi
+}
 
-if ((_clean)); then
+((_clean)) && {
     for _path in ${_git_path}/*; do
         case "${_path}" in
             *'.git')       [[ -d "${_path}" ]] && continue ;;
@@ -167,35 +169,35 @@ if ((_clean)); then
         git rm -rf "${_path}"
     done
     git_add_commit 'Cleaned gh-pages branch of files from parent branch'
-fi
+}
 
 
 modify_config_yml(){
-    if ! [ -f "${_git_path}/_config.yml" ]; then
+    [[ -f "${_git_path}/_config.yml" ]] || {
         printf 'Error - no Jekyll config file found under %s\n' "${_git_path}" >&2
         return 1
-    fi
+    }
 
     ## The following seem to be bugging things up
-    if [ -n "${_title}" ]; then
+    (("${#_title}")) && {
         sed -i "/title:/ { s#:[a-zA-Z 0-9]*#: ${_title}#; }" "${_git_path}/_config.yml"
-    fi
-    if [ -n "${_email}" ]; then
+    }
+    (("${#_email}")) && {
         sed -i "/email:/ { s#:[a-zA-Z 0-9]*#: ${_email}#; }" "${_git_path}/_config.yml"
-    fi
-    if [ -n "${_twitter_username}" ]; then
+    }
+    (("${#_twitter_username}")) && {
         sed -i "/_twitter_username:/ { s#:[a-zA-Z 0-9]*#: ${_twitter_username}#; }" "${_git_path}/_config.yml"
-    fi
-    if [ -n "${_github_username}" ]; then
+    }
+    (("${#_github_username}")) && {
         sed -i "/github_username:/ { s#:[a-zA-Z 0-9]*#: ${_github_username}#; }" "${_git_path}/_config.yml"
-    fi
+    }
 
-    if [[ "${_repo_name}" != "${_github_username}" ]]; then
+    [[ "${_repo_name}" != "${_github_username}" ]] && {
         tee -a "${_git_path}/_config_baseurl.yml" 1>/dev/null <<EOF
 # Use base URL to simulate GitHub pages behavior
 baseurl: "${_repo_name}"
 EOF
-    fi
+    }
 }
 
 
@@ -218,7 +220,7 @@ EOF
 
 git_add_commit 'Added files from Bundler & Jekyll to git tracking'
 
-[[ "${_old_PWD}" == "${_git_path}" ]] || cd "${_old_PWD}"
+[[ "${_old_PWD}" == "${_git_path}" ]] || { cd "${_old_PWD}"; }
 
 
 printf '# Clone %s via: git clone %s@domain_or_ip:%s\n' "${_repo_name}" "${USER}" "${_git_path//${HOME}\//}"

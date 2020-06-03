@@ -36,9 +36,9 @@ usage(){
 # -h    --help help
 #  Displays this message and exits
 EOF
-    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
-        printf 'Error - %s\n' "${_message}" >&2
-    fi
+    (("${#_message}")) && [[ "${_message}" != '0' ]] && {
+        printf >&2 'Error - %s\n' "${_message}"
+    }
 }
 
 _args=("${@:?# No arguments provided try: ${__NAME__} help}")
@@ -56,26 +56,26 @@ elif ((_license)); then
     exit 0
 fi
 
-if [ -z "${_repo_name}" ]; then
+(("${#_repo_name}")) || {
     usage 'missing repository name argument!'
     exit "1"
-fi
+}
 
 _www="${HOME}/www"
 _www_group="$(groups ${USER} | grep -oE 'www[-a-z]{0,29}')"
 _srv_path="${_www}/${_repo_name}"
 
-if [ -z "${_www_group}" ]; then
+(("${#_www_group}")) || {
     printf '# No www group found for %s\n' "${USER}"
     exit 1
-fi
-if ! [ -d "${_www}" ]; then
+}
+[[ -d "${_www}" ]] || {
     printf '# No www directory at %s\n' "${_www}"
-    if [ -e "${HOME}/git-shell-commands/jekyll-build"]; then
+    [[ -e "${HOME}/git-shell-commands/jekyll-build" ]] && {
         printf '# try: ssh %s@host-or-ip jekyll-build %s\n' "${USER}" "${_repo_name}"
-    fi
+    }
     exit 1
-fi
+}
 
 chown --recursive "${USER}":"${_www_group}" "${_srv_path}"
 find "${_srv_path}" -type d -exec chmod 750 {} \;

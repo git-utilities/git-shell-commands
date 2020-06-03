@@ -36,9 +36,9 @@ usage(){
 # -h    --help help
 #  Displays this message and exits
 EOF
-    if [ -n "${_message}" ] && [[ "${_message}" != '0' ]]; then
-        printf 'Error - %s\n' "${_message}" >&2
-    fi
+    (("${#_message}")) && [[ "${_message}" != '0' ]] && {
+        printf >&2 'Error - %s\n' "${_message}"
+    }
 }
 
 _args=("${@:?# No arguments provided try: ${__NAME__} help}")
@@ -59,12 +59,14 @@ elif ((_license)); then
     exit 0
 fi
 
-if [ -z "${_repo_name}" ]; then
+(("${#_repo_name}")) || {
     usage 'missing repository name argument!'
     exit "1"
-fi
+}
 
 
-[[ -d "${_git_path}" ]] && rm -rfv "${_git_path}"
+[[ -d "${_git_path}" ]] && {
+    rm -rfv "${_git_path}"
+}
 
 printf '# %s finished\n' "${__NAME__}"
