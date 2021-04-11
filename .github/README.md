@@ -80,7 +80,7 @@ EOF
 ```
 
 
-**Add SHH public key**
+**Add SSH public key**
 
 
 ```Bash
